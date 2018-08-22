@@ -15,7 +15,7 @@ case object USER_GPE extends Permission
 case object USER_NOR extends Permission
 
 
-private[mwemxa] class Role extends Model[Role] {
+class Role extends Model[Role] {
   /**
     * role_ID, role_NAME, role_DESC
     */

@@ -9,7 +9,7 @@ import com.kjhxtc.security.PasswordHelper
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-private[mwemxa] class User extends Model[User] with Logger {
+class User extends Model[User] with Logger {
   /*
    *  用户信息 用于认证 谁是谁
    *  ID, G-UUID,

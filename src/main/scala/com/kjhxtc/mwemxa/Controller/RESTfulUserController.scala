@@ -97,7 +97,7 @@ class RESTfulUserController extends JsonServiceCtrl with Logger with ISHelper {
           log info s"otp is ->$otp"
           val m = new java.util.HashMap[String, String]()
           m.put("OTP", otp)
-          NotifyCenter.sendSMS("Map phone", m, smsTemplate)
+          NotifyCenter.sendSMS("Map phone", m, null)
 
           JObject(
             JField("status", JInt(200)),

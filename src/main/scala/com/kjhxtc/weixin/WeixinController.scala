@@ -5,7 +5,10 @@ import com.kjhxtc.mwemxa.Logger
 
 import scala.util.matching.Regex
 
-class WeixinMsgController extends Controller with Logger {
+/**
+  * 为微信浏览器访问提供视图支持
+  */
+class WeixinController extends Controller with Logger {
   protected val REG_MicroMessenger: Regex =
     "^Mozilla(?:.+)MicroMessenger/([\\d]\\.[\\d]\\.[\\d]) NetType/(\\w{1,6}) Language/(\\w{5})".r
 

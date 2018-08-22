@@ -69,7 +69,6 @@ class Signin extends Controller with Logger with ISHelper {
   //login post
   def save(): Unit = {
 
-
     val logins: (LoginType, String) = getPara("signin_username") match {
       case REG_EMAIL(email) => (EmailLogin, email)
       case REG_LOGIN(name) => (NameLogin, name)

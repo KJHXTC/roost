@@ -1,32 +1,47 @@
-package com.kjhxtc.wechat
+package com.kjhxtc.wechat.service
 
 import java.net.SocketException
 
+import com.jfinal.weixin.sdk.api._
 import com.jfinal.weixin.sdk.msg.out._
+import com.kjhxtc.mwemxa.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.util._
 
+/**
+  * 在多数业务比较繁忙或者 耗时较长的场景中,使用异步应答来解决
+  * 即调用微信的客服接口 主动向微信服务器 PUSH 应答消息
+  * 但需要您的 公众号通过认证(每年一次,每次 300RMB的认证费用)
+  */
+object AsyncReply extends Logger {
 
-class AsyncReply {
 
-  // 在多数业务比较繁忙或者 耗时较长的场景中,使用异步应答来解决
-  // 即调用微信的客服接口 主动向微信服务器 PUSH 应答消息
-  // 但需要您的 公众号通过认证(每年一次,每次 300RMB的认证费用)
-  import com.jfinal.weixin.sdk.api._
-
+  /**
+    * 处理常见的消息格式包括
+    * <ul>
+    * <li>OutTextMsg</li>
+    * <li>OutImageMsg</li>
+    * <li>OutMusicMsg</li>
+    * <li>OutVoiceMsg</li>
+    * <li>OutVideoMsg</li>
+    * <li>OutNewsMsg</li>
+    * </ul>
+    *
+    * @param msg 原及时响应的应答消息
+    */
   def reply(msg: OutMsg): Unit = Future {
     msg match {
       case out: OutTextMsg =>
         CustomServiceApi.sendText(out.getFromUserName, out.getContent)
 
       case out: OutImageMsg =>
-        CustomServiceApi.sendImage(out.getFromUserName, out.getMediaId
+        CustomServiceApi.sendImage(out.getFromUserName, out.getMediaId)
 
       case out: OutMusicMsg =>
         CustomServiceApi.sendMusic(out.getFromUserName, out.getMusicUrl, out.getHqMusicUrl,
-          "", out.getTitle, out.getDescription) // TODO  原OutMusicMsg不支持Thumb_Media_Id
+          "", out.getTitle, out.getDescription) // TODO  原OutMusicMsg中 不支持 Thumb_Media_Id
 
       case out: OutVideoMsg =>
         CustomServiceApi.sendVideo(out.getFromUserName, out.getMediaId, out.getTitle, out.getDescription)
@@ -51,10 +66,11 @@ class AsyncReply {
     case Success(stats) =>
       if (stats.isSucceed) {
         // MessageQueue.success(user.msgId, )
-
+        log debug "Send success (Reply)"
       } else {
         // Notify other Handlers 一般为不支持
         // MessageQueue.toggle(user.msgId, )
+        log debug "Send Failed (Reply)" + stats.getErrorMsg
       }
 
 
@@ -65,7 +81,7 @@ class AsyncReply {
     case Failure(exception) =>
       exception match {
         case ex: SocketException =>
-
+          ex.printStackTrace()
 
       }
     // MessageQueue.Failed(user.msgId, )

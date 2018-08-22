@@ -2,7 +2,7 @@ package com.kjhxtc.mwemxa.Model
 
 import com.jfinal.plugin.activerecord.Model
 
-private[mwemxa] class Profile extends Model[Profile] {
+class Profile extends Model[Profile] {
 //  //用户公开信息 系统存储
 //  var 网名: String = _ // 用于个性化
 //  var 年龄: String = _ // 用于识别服务范围

@@ -16,44 +16,69 @@
 
 package com.kjhxtc.wechat
 
+import java.util.Date
+
 import com.jfinal.weixin.sdk.jfinal.MsgControllerAdapter
 import com.jfinal.weixin.sdk.msg.in._
 import com.jfinal.weixin.sdk.msg.in.event._
 import com.jfinal.weixin.sdk.msg.out._
-import com.kjhxtc.mwemxa.Logger
 import com.kjhxtc.mwemxa.Model.WechatUser
+import com.kjhxtc.mwemxa.{Jobs, Logger}
+import com.kjhxtc.wechat.service.{AsyncReply, UserUnSub}
+import org.quartz.{JobBuilder, TriggerBuilder}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, TimeoutException}
-import scala.util._
 
 
-class WeChatController extends MsgControllerAdapter with Logger{
+class WeChatController extends MsgControllerAdapter with Logger {
   val wxuser = new WechatUser()
 
-  // 如果处理时间内未完成 则 响应一个 Success 否则响应结果
-  def within(in: InMsg)(c: () => OutMsg): Unit = {
-    val ct = System.currentTimeMillis()
-    val f = Future[OutMsg](c())
+  /**
+    * 一般短耗时的任务 (微信设定为 5秒内可响应的)
+    * 这里推荐 3秒内(实际设定为4S)可响应的 执行同步应答
+    * 否则执行异步应答(要求公众号通过认证,否则应答失败)
+    */
+  def within(c: => OutMsg)(implicit in: InMsg): Unit = {
+    var async = false
+    val task = Future {
+      val value = c
+      //即使超时 也会继续执行 除非这里出现异常
+      if (async) {
+        log debug "通过客服应答接口回复用户请求"
+        AsyncReply.reply(value)
+      } else {
+        // 被动回复用户消息 https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421140543
+        log debug "直接应答用户请求"
+        render(value)
+      }
+    }
 
-    Await.ready(f, Duration.Inf) flatMap {
-      value =>
-        Future {
-          val ce = System.currentTimeMillis()
-          if (ce - ct > 4500) {
-            render(value)
-          } else {
-            new AsyncReply().reply(in)
-          }
-        }
+    try {
+      log debug "任务处理中 ..."
+      Await.result(task, FiniteDuration(4, SECONDS))
+      // 如果未超时 则继续向下执行
+    } catch {
+      case _: TimeoutException =>
+        async = true
+        log debug "Task take more than 3000ms, reply will set async"
+        renderDefault()
+      case th: Throwable =>
+        val error = new OutTextMsg(in)
+        error.setContent("服务器故障.您的请求已记录,我们会在修正后给予答复,感谢您的支持!")
+        render(error)
+        th.printStackTrace()
+      // 监控埋点
     }
   }
 
+  override def renderDefault() {
+    renderText("Success")
+  }
+
   override def processInTextMsg(inTextMsg: InTextMsg): Unit = {
-
-    within(inTextMsg) {
-
+    within {
       val f = wxuser.findOpenId(getPara("openid"))
       if (f.isEmpty) {
         log warn "notify user manager to get this openid to db"
@@ -62,15 +87,27 @@ class WeChatController extends MsgControllerAdapter with Logger{
       log debug inTextMsg.getMsgId
 
       inTextMsg.getContent match {
+
         case "绑定" =>
           val out = new OutNewsMsg(inTextMsg)
           val news = new News()
           news.setUrl("https://wms.kedyy.com/weixin/connect")
           news.setTitle("前往绑定账号 ...")
           news.setDescription("将此微信号与您的SITE 账号进行关联 享受更多便利")
-          news.setPicUrl("https://wms.kedyy.com/assets/demo/pricing-bg.jpg")
+          news.setPicUrl("https://wms.kjhxtc.com/assets/demo/pricing-bg.jpg")
           out.addNews(news)
           out
+
+        case "帮助" =>
+          val out = new OutNewsMsg(inTextMsg)
+          val news = new News()
+          news.setUrl("https://wms.kedyy.com/weixin/help")
+          news.setTitle("使用手册")
+          news.setDescription("点此获取使用说明手册")
+          news.setPicUrl("https://wms.kjhxtc.com/assets/demo/pricing-bg.jpg")
+          out.addNews(news)
+          out
+
         case _ =>
           val outMsg = new OutMusicMsg(inTextMsg)
           outMsg.setTitle("Day By Day")
@@ -79,43 +116,108 @@ class WeChatController extends MsgControllerAdapter with Logger{
           outMsg.setHqMusicUrl("http://www.jfinal.com/DayByDay-T-ara.mp3")
           outMsg.setFuncFlag(true)
           val u = wxuser.findOpenId(inTextMsg.getFromUserName)
-          u.foreach(
+          u foreach {
             f => outMsg.setDescription(f.getStr("NICK_NAME"))
-          )
+          }
           outMsg
       }
-
-
-    }
+    }(inTextMsg)
   }
 
 
   override def processInFollowEvent(inFollowEvent: InFollowEvent): Unit = {
     val p = new OutTextMsg(inFollowEvent)
 
-    if (inFollowEvent.getEvent.equalsIgnoreCase("subscribe")) {
-      p.setContent(
-        s"""欢迎关注 ${inFollowEvent.getToUserName}
-           |还可以回复关键字 绑定 进行账号关联
-           |想你所想, 如你所愿~
+    inFollowEvent.getEvent match {
+      case InFollowEvent.EVENT_INFOLLOW_SUBSCRIBE =>
+        p.setContent(
+          s"""欢迎关注 ${inFollowEvent.getToUserName}
+             |回复关键字 绑定 进行账号关联
+             |回复关键字 帮助 查看更多玩法
+             |想你所想, 如你所愿, 祝你开心每一天~
        """.stripMargin)
-      log warn "notify user manager to get this openid to db"
-      // todo
-      render(p)
+        log warn "Notify user manager to get this openid to db"
+        // todo
+        render(p)
 
-    } else {
-      log warn "Notice:: User unsubscribe ..."
-      log warn "nofify user manager to update openid to db"
-      renderDefault()
+      case InFollowEvent.EVENT_INFOLLOW_UNSUBSCRIBE =>
+        log warn "Notice:: User unsubscribe ..."
+        log warn "notify user manager to update openid to db"
+        renderDefault()
+        val job = JobBuilder.newJob(classOf[UserUnSub]).withIdentity("job1", "deleteUser").build
+        import org.quartz.SimpleScheduleBuilder._
+
+        val trigger = TriggerBuilder.newTrigger().withIdentity("xxx", "deleteuser")
+          .usingJobData("openid", inFollowEvent.getFromUserName)
+          .startAt(new Date(24 * 3600 * 1000 + System.currentTimeMillis()))
+          //          .startAt(new Date(10 * 1000 + System.currentTimeMillis()))
+          .withSchedule(simpleSchedule())
+          .build()
+        Jobs.scheduler.scheduleJob(job, trigger)
     }
   }
 
-  protected override def renderDefault() {
-    renderText("Success")
+  override def processInShortVideoMsg(inShortVideoMsg: InShortVideoMsg): Unit = {
+    log debug inShortVideoMsg.getMediaId
+  }
+
+  override def processInVideoMsg(inVideoMsg: InVideoMsg): Unit = {
+    log debug inVideoMsg.getThumbMediaId
+  }
+
+  override def processInVoiceMsg(inVoiceMsg: InVoiceMsg): Unit = {
+    log debug inVoiceMsg.getFormat
+  }
+
+  override def processInImageMsg(inImageMsg: InImageMsg): Unit = {
+    log debug inImageMsg.getPicUrl
+  }
+
+  override def processInLinkMsg(inLinkMsg: InLinkMsg): Unit = {
+    log debug inLinkMsg.getUrl
+  }
+
+  override def processInLocationMsg(inLocationMsg: InLocationMsg): Unit = {
+    log debug inLocationMsg.getLabel
+    log debug inLocationMsg.getScale
+  }
+
+  override def processInLocationEvent(inLocationEvent: InLocationEvent): Unit = {
+    log debug inLocationEvent.getPrecision
   }
 
   override def processInMenuEvent(inMenuEvent: InMenuEvent): Unit = {
     log debug inMenuEvent.getEventKey
+    log debug inMenuEvent.getEvent
+
+
+    inMenuEvent.getEvent match {
+      case InMenuEvent.EVENT_INMENU_CLICK =>
+
+      case InMenuEvent.EVENT_INMENU_VIEW =>
+      case InMenuEvent.EVENT_INMENU_VIEW_LIMITED =>
+      case InMenuEvent.EVENT_INMENU_MEDIA_ID =>
+      case InMenuEvent.EVENT_INMENU_LOCATION_SELECT =>
+        // WILL NOT HAPPEN
+        log error "JFinal WEIXIN API ERROR, should be #processInLocationEvent"
+      case InMenuEvent.EVENT_INMENU_SCANCODE_PUSH =>
+      case InMenuEvent.EVENT_INMENU_scancode_waitmsg =>
+      case InMenuEvent.EVENT_INMENU_PIC_PHOTO_OR_ALBUM =>
+      case InMenuEvent.EVENT_INMENU_PIC_SYSPHOTO =>
+      case InMenuEvent.EVENT_INMENU_PIC_WEIXIN =>
+      case _ =>
+    }
     renderDefault()
   }
+
+  override def processInCustomEvent(inCustomEvent: InCustomEvent): Unit = {
+    log debug inCustomEvent.getKfAccount
+    log debug inCustomEvent.getToKfAccount
+  }
+
+  override def processInQrCodeEvent(inQrCodeEvent: InQrCodeEvent): Unit = {
+    log debug inQrCodeEvent.getTicket
+  }
+
+
 }

@@ -1,14 +1,8 @@
 package com.kjhxtc.mwemxa
 
 import com.jfinal.config._
-import com.jfinal.core.ActionHandler
-import com.jfinal.ext.handler.RoutesHandler
-import com.jfinal.handler.Handler
-import com.jfinal.kit.PropKit
-import com.jfinal.log.Log
-import com.jfinal.plugin.activerecord.{ActiveRecordPlugin, DbKit}
+import com.jfinal.plugin.activerecord.ActiveRecordPlugin
 import com.jfinal.plugin.c3p0.C3p0Plugin
-import com.jfinal.plugin.hikaricp.HikariCpPlugin
 import com.jfinal.render.ViewType
 import com.jfinal.template.Engine
 import com.jfinal.weixin.sdk.api.{ApiConfig, ApiConfigKit}
@@ -16,8 +10,7 @@ import com.kjhxtc.mwemxa.Controller._
 import com.kjhxtc.mwemxa.Model._
 import com.kjhxtc.webBrowser.{Signin, Signup}
 import com.kjhxtc.wechat.{AdminController, _}
-import com.kjhxtc.weixin.WeixinMsgController
-import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
+import com.kjhxtc.weixin.WeixinController
 
 class SysConfig extends JFinalConfig with Logger {
   log warn "loading system config"
@@ -35,7 +28,7 @@ class SysConfig extends JFinalConfig with Logger {
     me.add("/signin", classOf[Signin])
     me.add("/login", classOf[Signin])
     me.add("/users", classOf[UserController])
-    me.add("/wechat/", classOf[WeixinMsgController])
+    me.add("/wechat/", classOf[WeixinController])
     me.add("/weixin/", classOf[AdminController])
 
     me.add("/accounts/wx/bind", classOf[RESTfulUserController])
@@ -51,7 +44,7 @@ class SysConfig extends JFinalConfig with Logger {
     ac.setAppSecret(prop.getProperty("appSecret"))
     ApiConfigKit.putApiConfig(ac)
 
-    me.add(prop.getProperty("uri"), classOf[WeixinMsgController])
+    me.add(prop.getProperty("uri"), classOf[WeChatController])
   }
 
   override def configEngine(me: Engine): Unit = {
@@ -82,5 +75,13 @@ class SysConfig extends JFinalConfig with Logger {
 
   override def configHandler(me: Handlers): Unit = {
 
+  }
+
+  override def afterJFinalStart(): Unit = {
+    Jobs.scheduler.start()
+  }
+
+  override def beforeJFinalStop(): Unit = {
+    Jobs.scheduler.shutdown()
   }
 }

@@ -47,14 +47,4 @@ class AdminController extends ApiController with Logger {
   def connect(): Unit = {
     render("connect.html")
   }
-
-  @ActionKey("/weixin/bind")
-  def bind(): Unit = {
-    if (getPara("status") == "success") {
-      render("success.html")
-    }
-    else {
-      render("error.html")
-    }
-  }
 }

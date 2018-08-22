@@ -10,7 +10,8 @@
 com.kjhxtc.
 
 ## 许可协议
-为了保证源代码可以自由使用 修改,但禁止二次**公开发版**
+[Apache License Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+
 欢迎提出Issue(包括但不限于 缺陷 功能 疑问以及代码优化和其他意见)
 欢迎 Pull Request
 ## 许可引用

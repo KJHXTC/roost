@@ -1,4 +1,4 @@
-package com.kjhxtc.wechat
+package com.kjhxtc.wechat.service
 
 class TaskDispatcher {
 

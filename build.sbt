@@ -6,6 +6,10 @@ version := "0.1"
 
 scalaVersion := "2.12.0"
 
+mainClass := Some("com.kjhxtc.mwemxa.Application")
+
+scalaSource := baseDirectory.value / "src" / "main" / "scala"
+
 // https://mvnrepository.com/artifact/com.jfinal/jfinal
 libraryDependencies += "com.jfinal" % "jfinal" % "3.4"
 libraryDependencies += "com.jfinal" % "jetty-server" % "8.1.8"
@@ -29,3 +33,7 @@ libraryDependencies += "com.alibaba" % "fastjson" % "1.2.49"
 libraryDependencies += "org.jboss.aerogear" % "aerogear-otp-java" % "1.0.0"
 // https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on
 libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.60"
+
+// https://mvnrepository.com/artifact/org.quartz-scheduler/quartz
+libraryDependencies += "org.quartz-scheduler" % "quartz" % "2.2.1"
+libraryDependencies += "org.quartz-scheduler" % "quartz-jobs" % "2.2.1"
