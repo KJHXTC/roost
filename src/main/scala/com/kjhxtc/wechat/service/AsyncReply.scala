@@ -60,7 +60,6 @@ object AsyncReply extends Logger {
           articles.add(article)
         })
         CustomServiceApi.sendNews(out.getFromUserName, articles)
-
     }
   } onComplete {
     case Success(stats) =>

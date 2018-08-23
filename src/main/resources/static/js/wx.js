@@ -101,13 +101,13 @@ function getLogin(that) {
       $("#vw_login_2fa").hide();
     },
     400: function(data) {
-      $.toast('无效的用户名🙃', 'cancel');
+      $.toast('🙃无效的账户', 'cancel');
     },
     403: function(data) {
-      $.toast('该账户已锁定🔒', 'forbidden');
+      $.toast('🔒账户已锁定', 'forbidden');
     },
     404: function(data) {
-      $.toast('用户名未找到😭', 'cancel');
+      $.toast('😭账户未找到', 'cancel');
     }
   }
   communicate(that, param, option);
@@ -262,7 +262,7 @@ function bindResult(data){
 function communicate(that, param, ready, error){
   param.date = new Date().toJSON();
   $.ajax({
-    url: '/accounts/wx/bind',
+    url: '/accounts/bind',
     type: 'GET',
     async: true,
     dataType: "json",
@@ -291,6 +291,10 @@ function communicate(that, param, ready, error){
     },
     error: function(){
       $.toptip('操作失败,请稍后再试', 10000, 'error');
+      setTimeout(function(){
+        $(that).parent().show();
+        $(that).parent().next().hide();
+      }, 10000);
       if(typeof(error) == 'function'){
         error();
       }

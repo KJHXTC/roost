@@ -38,8 +38,8 @@ class Signup extends Controller with Logger with ISHelper {
 
     setCookie("RID", encoder.encodeToString(buff), -1, "/signup", true)
     setAttr("CSRF_TOKEN", encoder.encodeToString(hash))
-    val N=PasswordHelper.testPk.asInstanceOf[RSAPublicKey].getModulus
-    val E=PasswordHelper.testPk.asInstanceOf[RSAPublicKey].getPublicExponent
+    val N = PasswordHelper.testPk.asInstanceOf[RSAPublicKey].getModulus
+    val E = PasswordHelper.testPk.asInstanceOf[RSAPublicKey].getPublicExponent
     val vector = new ASN1EncodableVector()
     vector.add(new ASN1Integer(N))
     vector.add(new ASN1Integer(E))
@@ -56,7 +56,7 @@ class Signup extends Controller with Logger with ISHelper {
 
     val ua = getHeader("User-Agent")
     log info ua
-    if (!snowflake.gen.validUseragent(ua)) {
+    if (!snowflake.validUA(ua)) {
       renderError(403)
     }
 
@@ -91,25 +91,25 @@ class Signup extends Controller with Logger with ISHelper {
       return
     }
 
-//    使用公钥加密后,密码强度只能前端校验了
-//    val userPassword = try {
-//      checkPasswordPolice(getPara("signup_password"))
-//    } catch {
-//      case _: Throwable =>
-//        renderError(400)
-//        ""
-//    }
-//    val mess = MessageDigest.getInstance("SHA-256")
-//    val k = SecretKeyFactory.getInstance("PBKDF2withHMACSHA256")
-//    val salt = new Array[Byte](16)
-//    val random = new SecureRandom()
-//    random.nextBytes(salt)
-//    val key = k.generateSecret(new PBEKeySpec(userPassword.toCharArray, salt, 2000, mess.getDigestLength * 8)).getEncoded
-//    val pass = Base64.getEncoder.encodeToString(key)
-//    val ltoken = Base64.getEncoder.encodeToString(salt)
+    //    使用公钥加密后,密码强度只能前端校验了
+    //    val userPassword = try {
+    //      checkPasswordPolice(getPara("signup_password"))
+    //    } catch {
+    //      case _: Throwable =>
+    //        renderError(400)
+    //        ""
+    //    }
+    //    val mess = MessageDigest.getInstance("SHA-256")
+    //    val k = SecretKeyFactory.getInstance("PBKDF2withHMACSHA256")
+    //    val salt = new Array[Byte](16)
+    //    val random = new SecureRandom()
+    //    random.nextBytes(salt)
+    //    val key = k.generateSecret(new PBEKeySpec(userPassword.toCharArray, salt, 2000, mess.getDigestLength * 8)).getEncoded
+    //    val pass = Base64.getEncoder.encodeToString(key)
+    //    val ltoken = Base64.getEncoder.encodeToString(salt)
     val cipher = Base64.getDecoder.decode(getPara("signup_password"))
     val pass = PasswordHelper().makePassword(PasswordHelper.testPvk, PasswordHelper.testKey, cipher)
-    db.set("ID", snowflake.gen.get_id(ua))
+    db.set("ID", snowflake.getId(ua))
       .set("LOGIN", userName)
       .set("ROLE", "admin")
       .set("PASSWORD", pass)

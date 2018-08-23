@@ -9,9 +9,9 @@ class UserUnSub extends org.quartz.Job with Logger {
     // Weixin
     val wx = new WechatUser
     log debug "Remove User From DB"
-    val openid = context.get("openid").asInstanceOf[String]
-    wx.findOpenId(openid) foreach (o => o.delete())
-    context.put("openid", openid)
-    context.put("status", "ok")
+    val openid = context.getJobDetail.getJobDataMap.get("openid").asInstanceOf[String]
+    wx.findOpenId(openid) foreach {
+      o => if (o.delete()) context.put("status", "ok")
+    }
   }
 }

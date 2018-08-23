@@ -1,4 +1,4 @@
-﻿(function() {
+(function() {
   if (!String.prototype.endsWith) {
 
     /*

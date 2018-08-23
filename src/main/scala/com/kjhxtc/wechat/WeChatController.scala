@@ -16,16 +16,13 @@
 
 package com.kjhxtc.wechat
 
-import java.util.Date
-
 import com.jfinal.weixin.sdk.jfinal.MsgControllerAdapter
 import com.jfinal.weixin.sdk.msg.in._
 import com.jfinal.weixin.sdk.msg.in.event._
 import com.jfinal.weixin.sdk.msg.out._
+import com.kjhxtc.mwemxa.Logger
 import com.kjhxtc.mwemxa.Model.WechatUser
-import com.kjhxtc.mwemxa.{Jobs, Logger}
-import com.kjhxtc.wechat.service.{AsyncReply, UserUnSub}
-import org.quartz.{JobBuilder, TriggerBuilder}
+import com.kjhxtc.wechat.service.{AsyncReply, TaskDispatcher}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -82,8 +79,9 @@ class WeChatController extends MsgControllerAdapter with Logger {
       val f = wxuser.findOpenId(getPara("openid"))
       if (f.isEmpty) {
         log warn "notify user manager to get this openid to db"
-        // todo
+        TaskDispatcher.addUser(inTextMsg.getFromUserName, inTextMsg.getToUserName)
       }
+
       log debug inTextMsg.getMsgId
 
       inTextMsg.getContent match {
@@ -91,9 +89,10 @@ class WeChatController extends MsgControllerAdapter with Logger {
         case "绑定" =>
           val out = new OutNewsMsg(inTextMsg)
           val news = new News()
-          news.setUrl("https://wms.kedyy.com/weixin/connect")
+          val host = getRequest.getServerName
+          news.setUrl(s"https://$host/weixin/connect")
           news.setTitle("前往绑定账号 ...")
-          news.setDescription("将此微信号与您的SITE 账号进行关联 享受更多便利")
+          news.setDescription("将此微信号与网站账号进行关联 享受更多便利")
           news.setPicUrl("https://wms.kjhxtc.com/assets/demo/pricing-bg.jpg")
           out.addNews(news)
           out
@@ -101,7 +100,8 @@ class WeChatController extends MsgControllerAdapter with Logger {
         case "帮助" =>
           val out = new OutNewsMsg(inTextMsg)
           val news = new News()
-          news.setUrl("https://wms.kedyy.com/weixin/help")
+          val host = getRequest.getServerName
+          news.setUrl(s"https://$host/weixin/help")
           news.setTitle("使用手册")
           news.setDescription("点此获取使用说明手册")
           news.setPicUrl("https://wms.kjhxtc.com/assets/demo/pricing-bg.jpg")
@@ -138,22 +138,14 @@ class WeChatController extends MsgControllerAdapter with Logger {
        """.stripMargin)
         log warn "Notify user manager to get this openid to db"
         // todo
+        TaskDispatcher.addUser(inFollowEvent.getFromUserName, inFollowEvent.getToUserName)
         render(p)
 
       case InFollowEvent.EVENT_INFOLLOW_UNSUBSCRIBE =>
         log warn "Notice:: User unsubscribe ..."
         log warn "notify user manager to update openid to db"
         renderDefault()
-        val job = JobBuilder.newJob(classOf[UserUnSub]).withIdentity("job1", "deleteUser").build
-        import org.quartz.SimpleScheduleBuilder._
-
-        val trigger = TriggerBuilder.newTrigger().withIdentity("xxx", "deleteuser")
-          .usingJobData("openid", inFollowEvent.getFromUserName)
-          .startAt(new Date(24 * 3600 * 1000 + System.currentTimeMillis()))
-          //          .startAt(new Date(10 * 1000 + System.currentTimeMillis()))
-          .withSchedule(simpleSchedule())
-          .build()
-        Jobs.scheduler.scheduleJob(job, trigger)
+        TaskDispatcher.preDeleteUser(inFollowEvent.getFromUserName)
     }
   }
 

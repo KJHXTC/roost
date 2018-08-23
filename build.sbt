@@ -14,6 +14,8 @@ scalaSource := baseDirectory.value / "src" / "main" / "scala"
 libraryDependencies += "com.jfinal" % "jfinal" % "3.4"
 libraryDependencies += "com.jfinal" % "jetty-server" % "8.1.8"
 libraryDependencies += "com.jfinal" % "jfinal-weixin" % "2.1"
+// https://mvnrepository.com/artifact/org.slf4j/slf4j-log4j12
+libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.25"
 // https://mvnrepository.com/artifact/log4j/log4j
 libraryDependencies += "log4j" % "log4j" % "1.2.17"
 // https://mvnrepository.com/artifact/commons-logging/commons-logging
