@@ -88,3 +88,13 @@ HTTP 发起的RESTful 接口调用
   不需要你重复造轮子了(最简单的 tomcat 实现静态资源路由,动态的Http解析(http报文->java class服务))
   但用惯了python的(Flask Django  Tornado Web Web2 ...)的反而觉得用起来也是不舒服,有规则就有约束
   
+  
+## 全局思考
+  
+  多台服务器情况下如何处理
+  
+  哪些需要共享
+  1. HTTP Session (认证信息 会话信息)
+  2. 微信 accessToken (目前放在数据库,并本地缓存)
+  3. 定时任务
+  4. HTTP请求 不在单机存储 这次请求 在AServer 下次可能在BServer

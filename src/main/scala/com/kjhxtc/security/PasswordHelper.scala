@@ -4,16 +4,18 @@ import java.io.{ObjectInputStream, ObjectOutputStream}
 import java.security._
 import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
 import java.util
-import java.util.Base64
 
 import javax.crypto.spec.SecretKeySpec
 import javax.crypto.{Cipher, Mac, SecretKey}
+import org.bouncycastle.util.encoders.Base64
 
 import scala.collection.mutable
-import scala.reflect.io.File
 import scala.util.matching.Regex
 
 object PasswordHelper {
+
+  import scala.reflect.io.File
+
   val testKey = new SecretKeySpec("XXSAWEKSDJIDFNSK".getBytes, "AES/CFB8/NoPadding")
   var testPk: PublicKey = _
   val testPvk: PrivateKey = {
@@ -67,8 +69,18 @@ object PasswordHelper {
 
 }
 
-abstract class PasswordHelper {
+/**
+  * 实现密码安全的几个要素
+  * 1. 单向对称加密 即 仅提供加密,不提供解密 这样可以防止服务器被黑后,被黑客利用访问权限进行反向解码
+  * 2. 验密操作在硬件密码机内执行,而不是通过外部解码对比 因此推荐硬加密；因为软加密意味着密码仍在服务器存储,黑客有获取密钥的可能
+  */
+trait PasswordHelper {
 
+  /**
+    * 标识
+    *
+    * @return
+    */
   def getName: String
 
   /**
@@ -80,15 +92,17 @@ abstract class PasswordHelper {
     * @param data      前端公钥加密的结果
     * @return 固定的自身可识别的密码格式,用于验证密码时识别
     */
+  @throws(classOf[SecurityException])
   def makePassword(key: Key, secureKey: SecretKey, data: Array[Byte]): String
 
   /**
     * 客户端采用普通密码生成器方式
     *
     * @param secureKey 后台保护密钥
-    * @param data      前端公钥加密的结果
+    * @param data      客户密码
     * @return 固定的自身可识别的密码格式,用于验证密码时识别
     */
+  @throws(classOf[SecurityException])
   def makePassword(secureKey: SecretKey, data: Array[Byte]): String
 
   /**
@@ -100,8 +114,11 @@ abstract class PasswordHelper {
     * @param passInDb  数据库存储的密码
     * @return
     */
+  @throws(classOf[SecurityException])
   def verifyPassword(signature: Array[Byte], token: Array[Byte], secureKey: SecretKey, passInDb: String): Boolean
 }
+
+final case class PasswordNotSupportException(msg: String) extends SecurityException(msg)
 
 /**
   * 使用 Base64 作为字符串编码方案
@@ -110,6 +127,14 @@ abstract class PasswordHelper {
 final class DefaultSoftSecureImpl extends PasswordHelper {
   val PasswordFormatInDB: String = "SOFT$V1$AES$%s"
   val PasswordFormatInDB_REG: Regex = "^SOFT\\$V1\\$AES\\$(%s)$".r
+
+  private def encode(array: Array[Byte]): String = {
+    Base64.toBase64String(array)
+  }
+
+  private def decode(data: String): Array[Byte] = {
+    Base64.decode(data)
+  }
 
   override def getName: String = "DefaultSoftSecureOfKEDYY"
 
@@ -129,14 +154,17 @@ final class DefaultSoftSecureImpl extends PasswordHelper {
     }
   }
 
-  private def encode(array: Array[Byte]): String = {
-    Base64.getEncoder.encodeToString(array)
+  override def makePassword(secureKey: SecretKey, data: Array[Byte]): String = {
+    val aes = Cipher.getInstance("AES/CFB8/NoPadding")
+    aes.init(Cipher.ENCRYPT_MODE, secureKey)
+    val xxx = aes.doFinal(data)
+    PasswordFormatInDB.format(encode(xxx))
   }
 
   override def verifyPassword(signature: Array[Byte], token: Array[Byte], secureKey: SecretKey, passwordInDb: String): Boolean = {
     val cipher = passwordInDb match {
       case PasswordFormatInDB_REG(value) => value
-      case _ => throw NotMyKeyException("Slang is not my dish")
+      case _ => throw PasswordNotSupportException("Slang is not my dish")
     }
     val aes = Cipher.getInstance("AES/CFB8/NoPadding")
     aes.init(Cipher.DECRYPT_MODE, secureKey)
@@ -145,18 +173,5 @@ final class DefaultSoftSecureImpl extends PasswordHelper {
     m.init(new SecretKeySpec(key, "HMacSHA256"))
     val y = m.doFinal(token)
     util.Arrays.equals(y, signature)
-  }
-
-  private def decode(data: String): Array[Byte] = {
-    Base64.getDecoder.decode(data)
-  }
-
-  case class NotMyKeyException(msg: String) extends Exception(msg)
-
-  override def makePassword(secureKey: SecretKey, data: Array[Byte]): String = {
-    val aes = Cipher.getInstance("AES/CFB8/NoPadding")
-    aes.init(Cipher.ENCRYPT_MODE, secureKey)
-    val xxx = aes.doFinal(data)
-    PasswordFormatInDB.format(encode(xxx))
   }
 }

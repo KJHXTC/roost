@@ -17,14 +17,28 @@
 package com.kjhxtc.mwemxa
 
 import com.jfinal.template.Template
-import com.sun.corba.se.impl.orbutil.closure.Future
 
 object NotifyCenter {
 
-  def sendSMS(mobile:String, content:java.util.Map[String,String], template: Template){
+  def sendSMS(mobile: String, content: java.util.Map[String, String], template: Template) {
     val message = template.renderToString(content)
 
     println(s"$mobile ---> $message")
     true
+  }
+
+  def sendEmail(mobile: String, content: java.util.Map[String, String], template: Template) {
+    val message = template.renderToString(content)
+
+    println(s"$mobile ---> $message")
+    true
+  }
+
+  def pushApp(): Unit = {
+
+  }
+
+  def pushWechat() = {
+
   }
 }
