@@ -41,10 +41,10 @@ function twoFactorAuthMapper(o, kv){
 }
 
 /**
- * 客户使用密码对 [经计算的 TOKEN(可能在网络中泄漏)]进行 PBKDF2 产生的 key 作为认证票据
+ * 客户使用密码对 [经计算的 TOKEN(可能在网络中泄漏)]进行 HMac 作为认证票据
  * 因为后台存储的是客户的密码
- *   系统密钥 K AES_256_GCM e(内部唯一ID, 客户密码的哈希值 (不做任何加盐))
- *   Ticket = HMAC(key=HASH(Password), message=Token)
+ *   系统密钥 K AES e(内部唯一ID, 客户密码的哈希值 (不做任何加盐))
+ *   Ticket = HMac(key=HASH(Password), message=Token)
  * 用户密码本身不会在网络中传输 (这里采用HMAC方式对请求参数签名)
  * 需要包含时间戳(另外 客户端自身时间如果不正确,需要自行根据服务器的时间戳计算出当前的 UTC 时间)
  */
@@ -116,6 +116,7 @@ function getLogin(that) {
 //认证密码
 function login(that) {
   if ($("#id_pwd").val().replace(' ','') == ''){
+    $("#id_pwd").val('');
     $.toast('请输入密码', 'cancel');
     return;
   }

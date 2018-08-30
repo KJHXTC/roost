@@ -18,6 +18,14 @@ package com.kjhxtc.mwemxa
 
 import com.jfinal.template.Template
 
+sealed abstract class SupportType(name: String)
+
+case class EmailMsg(address: String) extends SupportType("EMAIL")
+
+case class SMSMsg(phoneNumber: String) extends SupportType("MOBILE")
+
+case class WEIXIN(openid: String) extends SupportType("WECHAT")
+
 object NotifyCenter {
 
   def sendSMS(mobile: String, content: java.util.Map[String, String], template: Template) {
@@ -25,6 +33,21 @@ object NotifyCenter {
 
     println(s"$mobile ---> $message")
     true
+  }
+
+  def send(channel: SupportType, value: String): Boolean = {
+    channel match {
+      case EmailMsg(address) =>
+        println("Send MAIL ... " + address + " Success")
+        true
+      case SMSMsg(phoneNumber) =>
+        // 成本较高 每条至少 0.02RMB
+        println("Send MAIL ... " + phoneNumber + " Success")
+        true
+      case WEIXIN(openid) =>
+
+        true
+    }
   }
 
   def sendEmail(mobile: String, content: java.util.Map[String, String], template: Template) {

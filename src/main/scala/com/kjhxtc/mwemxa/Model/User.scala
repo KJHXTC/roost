@@ -1,13 +1,26 @@
+/*
+ * Copyright (c) 2018 kjhxtc.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.kjhxtc.mwemxa.Model
 
-import java.security.MessageDigest
 import java.util.Base64
 
 import com.jfinal.plugin.activerecord.Model
 import com.kjhxtc.mwemxa.Logger
-import com.kjhxtc.security.PasswordHelper
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
+import com.kjhxtc.security.AuthenticateHelper
 
 class User extends Model[User] with Logger {
   /*
@@ -28,8 +41,6 @@ class User extends Model[User] with Logger {
 
   var uid: BigInt = -1
 
-  import scala.collection.JavaConverters._
-
   def findByLogin(login: String): Option[User] = {
     val sql = "SELECT * FROM user WHERE LOGIN = ?"
     val found = this.find(sql, login)
@@ -42,7 +53,7 @@ class User extends Model[User] with Logger {
   }
 
   def findByEmail(login: String): Option[User] = {
-    val sql = "SELECT * FROM user WHERE ID = (SELECT UID FROM tb_profile WHERE EMAIL = ?)"
+    val sql = "SELECT * FROM user WHERE ID = (SELECT ID FROM tb_profile WHERE EMAIL = ?)"
     val found = this.find(sql, login)
     if (found.size() > 0) {
       val u = found.get(0)
@@ -53,7 +64,7 @@ class User extends Model[User] with Logger {
   }
 
   def findByPhone(cc: String, phone: String): Option[User] = {
-    val sql = "SELECT * FROM user WHERE ID = (SELECT UID FROM tb_profile WHERE MOBILE = ?)"
+    val sql = "SELECT * FROM user WHERE ID = (SELECT ID FROM tb_profile WHERE MOBILE = ?)"
     val found = this.find(sql, phone)
     if (found.size() > 0) {
       val u = found.get(0)
@@ -74,12 +85,13 @@ class User extends Model[User] with Logger {
     if (passwordOfDB.isEmpty) {
       // 禁止空密码认证
       throwable.foreach(th => throw th)
-      return false
+      false
+    } else {
+      // TODO 经硬件或其他安全设备进行签名值的计算
+      // 取出的是经过系统加密的密码,传给硬件加密机进行鉴别
+      AuthenticateHelper().verifyPassword(Base64.getDecoder.decode(signature), Base64.getDecoder.decode(token), getStr("ID"), AuthenticateHelper.testKey, passwordOfDB.get)
+      true
     }
-
-    // TODO 经硬件或其他安全设备进行签名值的计算
-    // 取出的是经过系统加密的密码,传给硬件加密机进行鉴别
-    PasswordHelper().verifyPassword(Base64.getDecoder.decode(signature), Base64.getDecoder.decode(token), PasswordHelper.testKey, passwordOfDB.get)
   }
 
   def hasEmail: Boolean = {
@@ -96,7 +108,7 @@ class User extends Model[User] with Logger {
   }
 
   def hasPhone: Boolean = {
-    val sql = "SELECT * from tb_profile WHERE UID = ?"
+    val sql = "SELECT * from tb_profile WHERE ID = ?"
     if (uid < 0) {
       throw new IllegalStateException("execute find first")
     }

@@ -1,9 +1,24 @@
+/*
+ * Copyright (c) 2018 kjhxtc.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.kjhxtc.mwemxa.Controller
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-import com.jfinal.aop.Before
 import com.kjhxtc.mwemxa.Model.User
 import com.kjhxtc.mwemxa.{ISHelper, Logger, NotifyCenter}
 import com.kjhxtc.security.OTPGene
@@ -13,13 +28,14 @@ import net.liftweb.json.JsonAST._
 sealed case class RESTfulException(code: Int, message: String, map: Map[String, String] = Map()) extends Exception(message)
 
 
+/**
+  * 无 Session 模式
+  *
+  * RESTFul 中如何对客户认证状态评级?
+  */
 class RESTfulUserController extends JsonServiceCtrl with Logger with ISHelper {
 
   override def data: JsonAST.JValue = {
-    if (Option(getCookie("CIRN")).isEmpty) {
-      log debug "New Client ..."
-      setCookie("CIRN", randomData(32), Int.MaxValue, true)
-    }
     someX()
   }
 
@@ -42,12 +58,16 @@ class RESTfulUserController extends JsonServiceCtrl with Logger with ISHelper {
             case _ =>
               throw RESTfulException(400, "无效的用户名")
           }
-
-          val clt = Option[String](getPara("salt"))
+          //客户端 挑战码
+          val clt = Option[String](getPara("salt")).getOrElse(throw RESTfulException(400, "参数错误"))
+          //服务端 应答码
           val svc = randomData(24)
-          val token = hash(clt.getOrElse(throw RESTfulException(400, "参数错误")), svc)
-          // 缓存账号信息
-          UserCache.set(token, login.getOrElse(throw RESTfulException(404, "无效的用户名")))
+
+          //计算客户端挑战凭据并缓存
+          val challenge = hash(clt, svc)
+          //缓存账号信息
+          UserCache.set(challenge, login.getOrElse(throw RESTfulException(404, "无效的用户名")))
+          //返回结果
           JObject(
             JField("status", JInt(200)),
             JField("salt", JString(svc))
@@ -59,13 +79,13 @@ class RESTfulUserController extends JsonServiceCtrl with Logger with ISHelper {
           */
         case "authorize" =>
           val signature = getPara("signature")
-          val token_id = getPara("token")
-          if (null == token_id || UserCache.get(token_id).isEmpty) {
+          val challenge = getPara("token") // 客户端计算的挑战凭据
+          if (null == challenge || UserCache.get(challenge).isEmpty) {
             throw RESTfulException(403, "请重新登录")
           }
-          val u = UserCache.get(token_id).get
+          val u = UserCache.get(challenge).get
           var c: List[JString] = Nil
-          if (!u.verification(signature, token_id)) {
+          if (!u.verification(signature, challenge)) {
             throw RESTfulException(401, "认证失败,请检查登录名和密码")
           } else {
             if (u.hasEmail) c ++= List(JString("EMAIL"))
@@ -76,9 +96,7 @@ class RESTfulUserController extends JsonServiceCtrl with Logger with ISHelper {
           if (c == Nil) {
             JObject(
               JField("status", JInt(200)),
-              JField("enable2fa", JBool(false)),
-              JField("title", JString("绑定成功")),
-              JField("message", JString("您的账号已成功与微信绑定"))
+              JField("enable2fa", JBool(false))
             )
           } else {
             JObject(
@@ -102,7 +120,7 @@ class RESTfulUserController extends JsonServiceCtrl with Logger with ISHelper {
 
           JObject(
             JField("status", JInt(200)),
-            JField("values", JString("发送成功")),
+            JField("message", JString("发送成功")),
             JField("retry", JInt(30))
           )
 
@@ -121,10 +139,10 @@ class RESTfulUserController extends JsonServiceCtrl with Logger with ISHelper {
             throw RESTfulException(401, "认证失败")
           }
 
+          setSessionAttr("uid", UserCache.get(t).get.uid.toString())
           JObject(
             JField("status", JInt(200)),
-            JField("title", JString("绑定成功")),
-            JField("message", JString("您的账号已成功与微信绑定"))
+            JField("message", JString("认证成功"))
           )
       }
     } catch {

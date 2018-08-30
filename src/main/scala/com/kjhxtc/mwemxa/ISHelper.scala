@@ -1,7 +1,24 @@
+/*
+ * Copyright (c) 2018 kjhxtc.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.kjhxtc.mwemxa
 
 import java.security.{MessageDigest, SecureRandom}
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicLong
 
 import scala.util.matching.Regex
 
@@ -58,19 +75,21 @@ trait ISHelper {
     * 用户登录名:<b>用户自己设定的唯一登录标识</b>
     * <p>规则一般根据网站自身的需求设定<p>
     * <p>具有全局唯一性, 可以一段时间内修改 也可以不允许修改</p>
-    * 这里默认只允许(不区分大小写) 字母开头的 字母数字 和下划线的 登录名
+    * 这里默认只允许(不区分大小写) 字母开头的 字母数字 登录名
     * <p>如果希望自定义可重写</p>
     *
     * @example
-    * 例如 百度 允许中文的用户名(登录名 且不允许修改)
+    * 百度 允许中文的用户名(登录名 且不允许修改)
+    * 这里我们允许实名(中文名)登录
     *
     */
-  lazy val REG_LOGIN: Regex = "^((?:[a-zA-Z][a-zA-Z0-9_]{5,19})|(?:[\\u4e00-\\u9fa5]{2,10}))$".r
+  lazy val REG_LOGIN: Regex = "^((?:[a-zA-Z][a-zA-Z0-9]{5,19})|(?:[\\u4e00-\\u9fa5]{2,10}))$".r
 
   def checkPasswordPolice(password: String, asLeast: Int = 3): String = {
     val p = password match {
       case REG_PASSWORD(word) => word
     }
+    //TODO 弱密码库检测
     var checked = 0
     if (p.exists(c => c.isDigit)) {
       checked += 1
@@ -84,7 +103,6 @@ trait ISHelper {
     if (p.exists(c => PERMIT_CHAR.contains(c))) {
       checked += 1
     }
-    println(checked)
     if (checked < asLeast) throw new IllegalArgumentException("Password Illegal")
     p
   }
@@ -102,13 +120,33 @@ trait ISHelper {
     val b = new Array[Byte](len)
     val rand = new SecureRandom()
     rand.nextBytes(b)
-    Base64.getEncoder.encodeToString(b)
+    encode(b)
+  }
+
+  def encode(data: Array[Byte]): String = {
+    Base64.getEncoder.encodeToString(data)
+  }
+
+  def decode(data: String): Array[Byte] = {
+    Base64.getDecoder.decode(data)
   }
 
   def hash(c: String, s: String, method: String = "SHA-256"): String = {
     val mess = MessageDigest.getInstance(method)
     mess.update(Base64.getDecoder.decode(c))
     mess.update(Base64.getDecoder.decode(s))
+    encode(mess.digest())
+  }
+}
+
+object ISHelper {
+  private final val unionCounter = new AtomicLong(0)
+
+  def unionTicket: String = {
+    val mess = MessageDigest.getInstance("SHA-256")
+    mess.update(Integer.toHexString(Application.clusterID).getBytes)
+    mess.update(Integer.toHexString(Application.agentID).getBytes())
+    mess.update(java.lang.Long.toHexString(unionCounter.incrementAndGet()).getBytes)
     Base64.getEncoder.encodeToString(mess.digest())
   }
 }

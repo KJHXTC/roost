@@ -22,33 +22,14 @@ import java.security.spec.AlgorithmParameterSpec
 import java.util
 
 import javax.crypto.spec.SecretKeySpec
-import javax.crypto.{Cipher, Mac, SecretKey}
-import org.bouncycastle.util.encoders.Base64
+import javax.crypto.{BadPaddingException, Cipher, Mac, SecretKey}
+import org.bouncycastle.util.encoders.{Base64, Hex}
 
-import scala.collection.mutable
 import scala.util.matching.Regex
 
-object AuthenticateHelper {
-
+object AuthenticateHelper extends Template[AuthenticateHelper] {
   val testKey = new SecretKeySpec("XXSAWEKSDJIDFNSK".getBytes, "AES")
-  private[this] val providers: mutable.HashSet[AuthenticateHelper] = mutable.HashSet(new DefaultSoftSecureImpl())
-
-  def add(c: AuthenticateHelper): Unit = {
-    if (null == c || null == c.getName) throw new IllegalArgumentException("PasswordHelper should be nonEmpty")
-    if (providers.exists(p => p.getName == c.getName)) throw new IllegalStateException("Provider already exists")
-    providers.add(c)
-  }
-
-  def apply(provider: String): AuthenticateHelper = {
-    providers.foreach(p =>
-      if (p.getName == provider) return p
-    )
-    throw new IllegalStateException("No Such Provider: " + provider)
-  }
-
-  def apply(): AuthenticateHelper = {
-    providers.headOption.getOrElse(throw new IllegalStateException("No Any Provider"))
-  }
+  add(new DefaultSoftSecureImpl())
 }
 
 /**
@@ -56,7 +37,7 @@ object AuthenticateHelper {
   * 1. 单向对称加密 即 仅提供加密,不提供解密 这样可以防止服务器被黑后,被黑客利用访问权限进行反向解码
   * 2. 验密操作在硬件密码机内执行,而不是通过外部解码对比 因此推荐硬加密；因为软加密意味着密码仍在服务器存储,黑客有获取密钥的可能
   */
-trait AuthenticateHelper {
+trait AuthenticateHelper extends Provider {
 
   /**
     * 标识
@@ -70,10 +51,11 @@ trait AuthenticateHelper {
     *
     * @param secureKey 后台保户客户密码的密钥
     * @param data      客户的明文密码(ASCII键盘可见字符)
+    * @param uid       内部用户号(数字字符)
     * @return 固定的自身可识别的密码格式,用于验证密码时识别
     */
   @throws(classOf[SecurityException])
-  def makePassword(secureKey: SecretKey, data: Array[Byte]): String
+  def makePassword(secureKey: SecretKey, data: Array[Byte], uid: String): String
 
   /**
     * 客户端采用 (公钥算法|对称算法)加密用户密码的方式将密码送入后台,然后后台使用对称算法保护客户密码存入数据库
@@ -83,23 +65,25 @@ trait AuthenticateHelper {
     * @param key          前端加密密钥
     * @param keyParameter 前端加密密钥参数
     * @param data         前端公钥加密的结果
+    * @param uid          内部用户号(数字字符)
     * @param secureKey    后台保户客户密码的密钥
     * @return 固定的自身可识别的密码格式,用于验证密码时识别
     */
   @throws(classOf[SecurityException])
-  def makePassword(key: Key, keyParameter: Option[AlgorithmParameterSpec] = None, data: Array[Byte], secureKey: SecretKey): String
+  def makePassword(key: Key, keyParameter: Option[AlgorithmParameterSpec] = None, data: Array[Byte], uid: String, secureKey: SecretKey): String
 
   /**
     * 验证客户端密码的登录签名
     *
     * @param signature 前端登录签名值
     * @param data      签名种子数据
+    * @param uid       内部用户号(数字字符)
     * @param secureKey 后台保户客户密码的密钥
     * @param passInDb  数据库存储的密码
     * @throws SecurityException 验证失败/异常时
     */
   @throws(classOf[SecurityException])
-  def verifyPassword(signature: Array[Byte], data: Array[Byte], secureKey: SecretKey, passInDb: String): Unit
+  def verifyPassword(signature: Array[Byte], data: Array[Byte], uid: String, secureKey: SecretKey, passInDb: String): Unit
 
   /**
     * 计算签名数据
@@ -136,6 +120,8 @@ final case class SignatureMissMatchException(msg: String) extends SecurityExcept
 final class DefaultSoftSecureImpl extends AuthenticateHelper {
   val PasswordFormatInDB: String = "SOFT$V1$AES$%s"
   val PasswordFormatInDB_REG: Regex = "^SOFT\\$V1\\$AES\\$([0-9a-zA-Z/\\+=]{6,127})$".r
+  // 使用BC软加密库实现
+  Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider())
 
   private def encode(array: Array[Byte]): String = {
     Base64.toBase64String(array)
@@ -145,35 +131,46 @@ final class DefaultSoftSecureImpl extends AuthenticateHelper {
     Base64.decode(data)
   }
 
+  private def uid2data(uid: String): Array[Byte] = {
+    if (null == uid || uid.isEmpty || uid.length > 32) throw new IllegalArgumentException("UID is Empty or too long")
+    uid.foreach(c => if (!c.isDigit) throw new IllegalArgumentException("UID Invalid"))
+    val keyHex = uid.reverse.padTo(32, '0').reverse
+    Hex.decode(keyHex)
+  }
+
   override def getName: String = "Default"
 
-  override def makePassword(key: Key, keyParameter: Option[AlgorithmParameterSpec], data: Array[Byte], secureKey: SecretKey): String = {
+  override def makePassword(key: Key, keyParameter: Option[AlgorithmParameterSpec], data: Array[Byte], uid: String, secureKey: SecretKey): String = {
     key match {
       case sek: SecretKey =>
-        val aes = Cipher.getInstance("AES/CFB/NoPadding")
+        val aes = Cipher.getInstance("AES/CFB/NoPadding", "BC")
         if (keyParameter.nonEmpty)
           aes.init(Cipher.DECRYPT_MODE, sek, keyParameter.get)
         else
           aes.init(Cipher.DECRYPT_MODE, sek)
         val password = aes.doFinal(data)
-        makePassword(secureKey = secureKey, data = password)
+        makePassword(secureKey = secureKey, data = password, uid)
 
       case pvk: RSAPrivateKey =>
-        val rsa = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        val rsa = Cipher.getInstance("RSA/ECB/PKCS1Padding", "BC")
         if (keyParameter.nonEmpty)
           rsa.init(Cipher.DECRYPT_MODE, pvk, keyParameter.get)
         else
           rsa.init(Cipher.DECRYPT_MODE, pvk)
 
         val password = rsa.doFinal(data)
-        makePassword(secureKey, password)
+        makePassword(secureKey, password, uid)
     }
   }
 
-  override def makePassword(secureKey: SecretKey, data: Array[Byte]): String = {
+  override def makePassword(secureKey: SecretKey, data: Array[Byte], uid: String): String = {
     try {
+      val engine = Cipher.getInstance("AES/ECB/NoPadding", "BC")
+      engine.init(Cipher.ENCRYPT_MODE, secureKey) // 密钥离散
+      // 对密钥进行分散算法,使用分散后的密钥加密 防止直接将B用户的密码copy到A用户的表上,然后成功冒充A登录
+      val tempKey = engine.doFinal(uid2data(uid))
       val aes = Cipher.getInstance("AES/ECB/PKCS5Padding")
-      aes.init(Cipher.ENCRYPT_MODE, secureKey)
+      aes.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(tempKey, "AES/ECB/PKCS5Padding"))
       val cipher = aes.doFinal(data)
       PasswordFormatInDB.format(encode(cipher))
     } catch {
@@ -183,16 +180,22 @@ final class DefaultSoftSecureImpl extends AuthenticateHelper {
   }
 
 
-  override def verifyPassword(signature: Array[Byte], token: Array[Byte], secureKey: SecretKey, passwordInDb: String): Unit = {
+  override def verifyPassword(signature: Array[Byte], token: Array[Byte], uid: String, secureKey: SecretKey, passwordInDb: String): Unit = {
     val cipher = passwordInDb match {
       case PasswordFormatInDB_REG(value) => value
       case _ => throw PasswordNotSupportException("Slang is not my dish")
     }
     val key = try {
-      val aes = Cipher.getInstance("AES/ECB/PKCS5Padding")
-      aes.init(Cipher.DECRYPT_MODE, secureKey)
-      aes.doFinal(decode(cipher))
+      val engine = Cipher.getInstance("AES/ECB/NoPadding", "BC")
+      engine.init(Cipher.ENCRYPT_MODE, secureKey) // 密钥离散
+      val tempKey = engine.doFinal(uid2data(uid))
+      val aes2 = Cipher.getInstance("AES/ECB/PKCS5Padding", "BC")
+      aes2.init(Cipher.DECRYPT_MODE, new SecretKeySpec(tempKey, "AES"))
+      aes2.doFinal(decode(cipher))
     } catch {
+      case e: BadPaddingException =>
+        // Monitor.record may be someone change user password from db
+        throw new SecurityException(e)
       case th: Throwable => throw new SecurityException(th)
     }
     val exceptSignature = try {
@@ -214,7 +217,7 @@ final class DefaultSoftSecureImpl extends AuthenticateHelper {
         * 当然 像银行一般采用对称CMac
         */
       case secureKey: SecretKey =>
-        val mac = Mac.getInstance("HMacSHA256")
+        val mac = Mac.getInstance("HMacSHA256", "BC")
         mac.init(new SecretKeySpec(secureKey.getEncoded, "HMacSHA256"))
         val x = mac.doFinal(data)
         encode(x)

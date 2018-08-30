@@ -39,3 +39,6 @@ libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.60"
 // https://mvnrepository.com/artifact/org.quartz-scheduler/quartz
 libraryDependencies += "org.quartz-scheduler" % "quartz" % "2.2.1"
 libraryDependencies += "org.quartz-scheduler" % "quartz-jobs" % "2.2.1"
+
+// https://mvnrepository.com/artifact/com.google.guava/guava
+libraryDependencies += "com.google.guava" % "guava" % "26.0-jre"

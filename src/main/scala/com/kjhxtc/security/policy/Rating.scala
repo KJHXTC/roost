@@ -14,19 +14,10 @@
  * limitations under the License.
  */
 
-package com.kjhxtc.mwemxa.Model
+package com.kjhxtc.security.policy
 
-import com.jfinal.plugin.activerecord.Model
-
-class WechatUser extends Model[WechatUser] {
-
-  def findOpenId(id: String): Option[WechatUser] = {
-    val u = dao.findFirst(s"select * from WX_USER where OPENID=?", id)
-    Option(u)
-  }
-
-  def bindOpenIDwithUserID(id: BigInt): Unit = {
-    set("UID", id)
-    save()
-  }
+object Rating {
+  val REG_EMAIL: Int = 2
+  val REG_Phone: Int = 3
+  val REG_SNS: Int = 2
 }

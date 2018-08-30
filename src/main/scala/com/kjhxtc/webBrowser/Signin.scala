@@ -16,11 +16,6 @@
 
 package com.kjhxtc.webBrowser
 
-import java.security.{MessageDigest, SecureRandom}
-import java.time.ZonedDateTime
-import java.util
-import java.util.Base64
-
 import com.jfinal.aop.Before
 import com.jfinal.core.Controller
 import com.jfinal.ext.interceptor.Restful
@@ -41,37 +36,21 @@ case object NameLogin extends LoginType
 class Signin extends Controller with Logger with ISHelper {
   //login get
   def index(): Unit = {
-    val c = new util.HashMap[String, String]()
-    c.put("CSRF_TOKEN", "Er")
-    setAttr("signForm", c)
+    getSession(true)
+    val d = getCookie("BS_UUID", randomData(32))
+    setCookie("BS_UUID", d, Int.MaxValue)
 
-    val decoder = Base64.getDecoder
-    val encoder = Base64.getEncoder
-    val dist = MessageDigest.getInstance("SHA-1")
-    val time = ZonedDateTime.now()
-    val d = getCookie("CIRN", encoder.encodeToString(dist.digest(time.toString.getBytes)))
-    setCookie("CIRN", d, Int.MaxValue)
-    val e = decoder.decode(d)
-    val random = new SecureRandom(e)
-
-    val buff = new Array[Byte](dist.getDigestLength)
-    random.nextBytes(buff)
-    val hash = dist.digest(buff)
-    // 注册会话
-    getSession(true).setAttribute("TOKEN", encoder.encodeToString(hash))
-
-    setCookie("RID", encoder.encodeToString(buff), -1, "/signin", true)
-    setAttr("CSRF_TOKEN", encoder.encodeToString(hash))
     setAttr("SNS", "FaceBook")
     render("signin.html")
   }
 
   //login post
   def save(): Unit = {
-
+    log info getHeader("Refer")
     val logins: (LoginType, String) = getPara("signin_username") match {
       case REG_EMAIL(email) => (EmailLogin, email)
       case REG_LOGIN(name) => (NameLogin, name)
+      case REG_Phone(cn, id) => (PhoneLogin, "+%s %s" format(cn, id))
       case _ =>
         log error "Login Type unknown"
         throw new Exception("Invalid login id")

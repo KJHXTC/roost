@@ -1,3 +1,19 @@
+<!--
+  ~ Copyright (c) 2018 kjhxtc.com
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
 <!DOCTYPE html>
 <!--[if IE 8]>
 <html class="ie8"> <![endif]-->
@@ -117,7 +133,6 @@
 
       <div class="form-group w-icon">
         <input type="password" name="signup_password" id="password_id" class="form-control input-lg"
-#               data-xsa="${RSA_PUBLIC_KEY}"
                placeholder="Password">
         <span class="fa fa-lock signup-form-icon"></span>
       </div>
@@ -128,9 +143,11 @@
           <span class="lbl">I agree with the <a href="#" target="_blank">Terms and Conditions</a></span>
         </label>
       </div>
-#     <input type="hidden" name="CSRF_TOKEN" value="${CSRF_TOKEN}" readonly>
+      # <input id="cipher_key" type="text" value="${CIPHER_KEY}" disabled hidden>
+      # <input type="hidden" name="__CSRF_TOKEN_TIME__" value="${__CSRF_TOKEN_TIME__}">
+      # <input type="hidden" name="__NONCE__" value="${__NONCE__}">
       <div class="form-actions">
-        <input type="submit" value="SIGN UP" class="signup-btn bg-primary">
+        <input id="bt_register_id" type="button" value="SIGN UP" class="signup-btn bg-primary">
       </div>
     </form>
     <!-- / Form -->
@@ -211,7 +228,10 @@
 			required: true
 		});
 	});
-
+$("#bt_register_id").click(function(){
+    document.getElementById("password_id").value = encrypt_password($("#password_id").val());
+    $("form").submit();
+});
 	window.PixelAdmin.start(init);
 </script>
 <script src="https://cdn.bootcss.com/crypto-js/3.1.9/crypto-js.min.js"></script>
@@ -222,5 +242,6 @@
 <script src="/static/js/asn1-1.0.js"></script>
 <script src="/static/js/asn1hex-1.1.js"></script>
 <script src="/static/js/keyutil-1.0.js"></script>
+<script src="/static/js/su.js"></script>
 </body>
 </html>

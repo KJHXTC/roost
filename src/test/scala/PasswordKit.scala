@@ -14,19 +14,15 @@
  * limitations under the License.
  */
 
-package com.kjhxtc.mwemxa.Model
+import com.kjhxtc.mwemxa.ISHelper
+import com.kjhxtc.security.AuthenticateHelper
+import javax.crypto.Cipher
 
-import com.jfinal.plugin.activerecord.Model
-
-class WechatUser extends Model[WechatUser] {
-
-  def findOpenId(id: String): Option[WechatUser] = {
-    val u = dao.findFirst(s"select * from WX_USER where OPENID=?", id)
-    Option(u)
-  }
-
-  def bindOpenIDwithUserID(id: BigInt): Unit = {
-    set("UID", id)
-    save()
-  }
+object PasswordKit extends App with ISHelper {
+  val cipher = "2itVSn7Lizh4BDbxPv8EWA=="
+  val secureKey = AuthenticateHelper.testKey
+  val aes = Cipher.getInstance("AES/ECB/PKCS5Padding")
+  aes.init(Cipher.DECRYPT_MODE, secureKey)
+  val key = aes.doFinal(decode(cipher))
+  println(new String(key))
 }

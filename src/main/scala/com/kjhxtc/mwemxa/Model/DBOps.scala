@@ -16,17 +16,23 @@
 
 package com.kjhxtc.mwemxa.Model
 
-import com.jfinal.plugin.activerecord.Model
+import com.jfinal.plugin.activerecord.Record
 
-class WechatUser extends Model[WechatUser] {
+abstract class DBOps(tableName: String, ignoreCase: Boolean = true) {
 
-  def findOpenId(id: String): Option[WechatUser] = {
-    val u = dao.findFirst(s"select * from WX_USER where OPENID=?", id)
-    Option(u)
+  var record: Record = _
+
+  def get[T](key: String, defaultValue: AnyRef = null): T = {
+    record.get(key, defaultValue)
   }
 
-  def bindOpenIDwithUserID(id: BigInt): Unit = {
-    set("UID", id)
-    save()
+  def set(key: String, value: AnyRef): this.type = {
+    if (record != null) {
+      record.set(key, value)
+    } else {
+      record = new Record()
+      record.set(key, value)
+    }
+    this
   }
 }
