@@ -1,3 +1,19 @@
+<!--
+  ~ Copyright (c) 2018 kjhxtc.com
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
 <!DOCTYPE html>
 <!--[if IE 8]>         <html class="ie8"> <![endif]-->
 <!--[if IE 9]>         <html class="ie9 gt-ie8"> <![endif]-->
@@ -118,7 +134,7 @@
   <div class="signin-form">
 
     <!-- Form -->
-    <form action="/login" id="signin-form_id" method="post">
+    <form action="/signin" id="signin-form_id" method="post">
       <div class="signin-text">
         <span>Sign In to your account</span>
       </div> <!-- / .signin-text -->
@@ -129,12 +145,17 @@
       </div> <!-- / Username -->
 
       <div class="form-group w-icon">
-        <input type="password" name="signin_password" id="password_id" class="form-control input-lg" placeholder="Password">
+        <input type="password" name="signature" id="password_id" class="form-control input-lg" placeholder="Password">
         <span class="fa fa-lock signin-form-icon"></span>
       </div> <!-- / Password -->
+             # <input id="id_server_random" value="${SERVER_RANDOM}" disabled hidden>
+             # <input id="id_server_timestamp" value="${SERVER_TIMESTAMP}" disabled hidden>
+      <input type="hidden" id="id_login_token" name="__LOGIN_TOKEN__">
+      <input type="hidden" id="id_login_time" name="__LOGIN_TOKEN_TIMESTAMP__">
+      <input type="hidden" id="id_login_delta" name="__LOGIN_DELTA_TIMESTAMP__">
 
       <div class="form-actions">
-        <input type="submit" value="SIGN IN" class="signin-btn bg-primary">
+        <input id="bt_sign_in" type="button" value="SIGN IN" class="signin-btn bg-primary">
         <a href="#" class="forgot-password" id="forgot-password-link">Forgot your password?</a>
       </div> <!-- / .form-actions -->
     </form>
@@ -236,6 +257,10 @@
 			required: true,
 			minlength: 6
 		});
+		$("#bt_sign_in").click(function(){
+          document.getElementById("password_id").value = signature_token();
+          $("#signin-form_id").submit();
+        });
 	});
 
 	// Setup Password Reset form validation
@@ -251,6 +276,8 @@
 
 	window.PixelAdmin.start(init);
 </script>
-
+<script src="https://cdn.bootcss.com/crypto-js/3.1.9/crypto-js.min.js"></script>
+<script src="/static/js/security.js"></script>
+<script src="/static/js/su.js"></script>
 </body>
 </html>

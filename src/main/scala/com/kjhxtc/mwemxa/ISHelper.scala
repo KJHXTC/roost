@@ -133,8 +133,8 @@ trait ISHelper {
 
   def hash(c: String, s: String, method: String = "SHA-256"): String = {
     val mess = MessageDigest.getInstance(method)
-    mess.update(Base64.getDecoder.decode(c))
-    mess.update(Base64.getDecoder.decode(s))
+    mess.update(decode(s))
+    mess.update(decode(c))
     encode(mess.digest())
   }
 }

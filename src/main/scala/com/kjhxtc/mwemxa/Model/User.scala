@@ -20,7 +20,7 @@ import java.util.Base64
 
 import com.jfinal.plugin.activerecord.Model
 import com.kjhxtc.mwemxa.Logger
-import com.kjhxtc.security.AuthenticateHelper
+import com.kjhxtc.security.{AuthenticateHelper, PasswordMissMatchException}
 
 class User extends Model[User] with Logger {
   /*
@@ -89,8 +89,13 @@ class User extends Model[User] with Logger {
     } else {
       // TODO 经硬件或其他安全设备进行签名值的计算
       // 取出的是经过系统加密的密码,传给硬件加密机进行鉴别
-      AuthenticateHelper().verifyPassword(Base64.getDecoder.decode(signature), Base64.getDecoder.decode(token), getStr("ID"), AuthenticateHelper.testKey, passwordOfDB.get)
-      true
+      try {
+        AuthenticateHelper().verifyPassword(Base64.getDecoder.decode(signature), Base64.getDecoder.decode(token), getStr("ID"), AuthenticateHelper.testKey, passwordOfDB.get)
+        true
+      } catch {
+        case _: PasswordMissMatchException =>
+          false
+      }
     }
   }
 

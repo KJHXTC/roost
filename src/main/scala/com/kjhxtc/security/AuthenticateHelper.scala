@@ -185,7 +185,7 @@ final class DefaultSoftSecureImpl extends AuthenticateHelper {
       case PasswordFormatInDB_REG(value) => value
       case _ => throw PasswordNotSupportException("Slang is not my dish")
     }
-    val key = try {
+    val password = try {
       val engine = Cipher.getInstance("AES/ECB/NoPadding", "BC")
       engine.init(Cipher.ENCRYPT_MODE, secureKey) // 密钥离散
       val tempKey = engine.doFinal(uid2data(uid))
@@ -199,8 +199,8 @@ final class DefaultSoftSecureImpl extends AuthenticateHelper {
       case th: Throwable => throw new SecurityException(th)
     }
     val exceptSignature = try {
-      val mac = Mac.getInstance("HMacSHA256")
-      mac.init(new SecretKeySpec(key, "HMacSHA256"))
+      val mac = Mac.getInstance("HMacSHA256", "BC")
+      mac.init(new SecretKeySpec(password, "HMacSHA256"))
       mac.doFinal(token)
     } catch {
       case th: Throwable => throw new SecurityException(th)

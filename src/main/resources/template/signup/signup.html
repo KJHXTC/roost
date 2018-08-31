@@ -228,20 +228,14 @@
 			required: true
 		});
 	});
-$("#bt_register_id").click(function(){
-    document.getElementById("password_id").value = encrypt_password($("#password_id").val());
-    $("form").submit();
-});
+    $("#bt_register_id").click(function(){
+        document.getElementById("password_id").value = encrypt_password();
+        $("form").submit();
+    });
 	window.PixelAdmin.start(init);
 </script>
 <script src="https://cdn.bootcss.com/crypto-js/3.1.9/crypto-js.min.js"></script>
-<script src="/static/js/yahoo.js"></script>
-<script src="/static/js/rsa.js"></script>
-<script src="/static/js/jsbn.js"></script>
-<script src="/static/js/jsbn2.js"></script>
-<script src="/static/js/asn1-1.0.js"></script>
-<script src="/static/js/asn1hex-1.1.js"></script>
-<script src="/static/js/keyutil-1.0.js"></script>
+<script src="/static/js/security.js"></script>
 <script src="/static/js/su.js"></script>
 </body>
 </html>

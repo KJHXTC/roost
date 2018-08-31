@@ -82,6 +82,7 @@ class AdminController extends ApiController with Logger {
         log error "nosi-->" + others
         renderError(401)
     }
+    setAttr("title", "账号关联 - 微信 - 身份认证")
   }
 
   @ActionKey("/weixin/signup")

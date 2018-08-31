@@ -1,18 +1,7 @@
 /*
  * 提供一种控制页面跳转和错误展示
- * 面向 中文 用户
+ * 面向中文微信用户
  */
-function random(len){
-  var b = new Uint8Array(len);
-  for (var i=0; i< len; i++){
-    b[i]= parseInt(Math.random()*1000) % 256;
-  }
-  var buff = ''
-  b.forEach(function(x){
-    buff += String.fromCharCode(x);
-  });
-  return window.btoa(buff);
-}
 
 function twoFactorAuthMapper(o, kv){
   if( typeof(kv) == 'undefined'){
@@ -40,39 +29,12 @@ function twoFactorAuthMapper(o, kv){
   return v;
 }
 
-/**
- * 客户使用密码对 [经计算的 TOKEN(可能在网络中泄漏)]进行 HMac 作为认证票据
- * 因为后台存储的是客户的密码
- *   系统密钥 K AES e(内部唯一ID, 客户密码的哈希值 (不做任何加盐))
- *   Ticket = HMac(key=HASH(Password), message=Token)
- * 用户密码本身不会在网络中传输 (这里采用HMAC方式对请求参数签名)
- * 需要包含时间戳(另外 客户端自身时间如果不正确,需要自行根据服务器的时间戳计算出当前的 UTC 时间)
- */
-function tokenPassword(token, password, method){
-//  var config = {
-//    keySize: 256/32,
-//    hasher: CryptoJS.algo.SHA256,
-//    iterations: 512
-//  }
-//  var keyGen = CryptoJS.PBKDF2(password, CryptoJS.enc.Base64.parse(token), config);
-//  return keyGen.toString(CryptoJS.enc.Base64);
-  if (typeof(method) == 'undefined'){
-    method = 'SHA-256';
-  }
-  method = method.replace(' ','').replace('-','').toUpperCase();
-  if (CryptoJS.hasOwnProperty(method) && CryptoJS.hasOwnProperty('Hmac'+method)){
-    var key = CryptoJS[method](password);
-    var message = CryptoJS.enc.Base64.parse(token);
-    return CryptoJS['Hmac'+method](message, key).toString(CryptoJS.enc.Base64);
-  } else{
-    $.toptip("请联系管理员 webmaster@"+window.location.hostname, 60000, 'error');
-  }
+function tokenPassword(password){
+  return signatureTicketWithHMac(__TOKEN__, null, password, 'SHA-256');
 }
 
 function setToken(server, client){
-  var s = CryptoJS.enc.Base64.parse(server);
-  var c = CryptoJS.enc.Base64.parse(client);
-  __TOKEN__ = CryptoJS.SHA256(c.concat(s)).toString(CryptoJS.enc.Base64);
+  __TOKEN__ = generateTicket(server, client);
 }
 
 // 如果能仅限本JS内方法访问就好了 🙃
@@ -122,11 +84,18 @@ function login(that) {
   }
   $(that).parent().hide();
   $(that).parent().next().show();
-  var param= {
-    action: 'authorize',
-    token: __TOKEN__,
-    signature: tokenPassword(__TOKEN__, $("#id_pwd").val())
-  };
+  try{
+    var param= {
+      action: 'authorize',
+      token: __TOKEN__,
+      signature: tokenPassword($("#id_pwd").val())
+    };
+  } catch (err) {
+    $.toptip("请联系管理员需求帮助#安全模块异常", 60000, 'error');
+    return;
+  }
+  // 清空密码
+  $("#id_pwd").val('');
   var option = {
     200: function(data){
       $("#vw_login_id").hide();
